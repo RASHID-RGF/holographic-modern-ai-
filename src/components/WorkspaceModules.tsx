@@ -23,6 +23,9 @@ export default function WorkspaceModules({ activeView, files, onFilesChange }: W
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const previousScreenshotUrlRef = useRef<string | null>(null);
   const [screenshots, setScreenshots] = useState<UploadedFile[]>([]);
+  const [uploadAnalysisOutput, setUploadAnalysisOutput] = useState('');
+  const [uploadAnalysisLoading, setUploadAnalysisLoading] = useState(false);
+  const [analyzedFileName, setAnalyzedFileName] = useState('');
 
   const captureScreenshot = async () => {
     if (!shareStream || !videoRef.current) {
@@ -97,6 +100,80 @@ export default function WorkspaceModules({ activeView, files, onFilesChange }: W
     event.target.value = '';
   };
 
+  const analysisPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (uploadAnalysisOutput && !uploadAnalysisLoading) {
+      setTimeout(() => {
+        analysisPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 100);
+    }
+  }, [uploadAnalysisOutput, uploadAnalysisLoading]);
+
+  const analyzeUploadedFile = async (file: UploadedFile) => {
+    if (uploadAnalysisLoading) return;
+
+    setUploadAnalysisLoading(true);
+    setUploadAnalysisOutput('');
+    setAnalyzedFileName(file.name);
+
+    try {
+      let screenshotBase64 = '';
+      if (file.preview) {
+        const response = await fetch(file.preview);
+        const blob = await response.blob();
+        screenshotBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      const apiResponse = await fetch('/api/nova-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: `Analyze this ${file.type === 'image' ? 'image' : 'PDF document'} named "${file.name}" in detail. Describe what you see, identify UI elements, layout, content, text, colors, and any notable features. Be thorough and organized.`,
+          files: [{
+            id: file.id,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            preview: file.preview,
+          }],
+          screenshotBase64,
+        }),
+      });
+
+      if (apiResponse.ok) {
+        const data = await apiResponse.json();
+        if (typeof data?.content === 'string' && data.content.trim()) {
+          setUploadAnalysisOutput(data.content);
+        } else {
+          throw new Error('Empty response');
+        }
+      } else {
+        throw new Error('API error');
+      }
+    } catch {
+      setUploadAnalysisOutput(
+        'Nova API is not available.\n\nMake sure you have NOVA_API_KEY set in .env.local. Without it, the AI cannot analyze files.'
+      );
+    }
+
+    setUploadAnalysisLoading(false);
+  };
+
+  const removeFile = (fileId: string) => {
+    const file = files.find(f => f.id === fileId);
+    if (file?.preview) {
+      URL.revokeObjectURL(file.preview);
+    }
+    const updated = files.filter(file => file.id !== fileId);
+    onFilesChange(updated);
+  };
+
   const images = files.filter(file => file.type === 'image');
   const pdfs = files.filter(file => file.type === 'pdf');
 
@@ -116,7 +193,7 @@ export default function WorkspaceModules({ activeView, files, onFilesChange }: W
               <div>
                 <p className="text-[10px] uppercase tracking-[0.35em] text-cyan-300/70">Upload hub</p>
                 <h2 className="text-xl font-semibold text-white">Media and document intake</h2>
-                <p className="mt-2 text-sm text-white/60">Upload images and PDFs, then ask Nova to summarize, inspect, or turn them into action items.</p>
+                <p className="mt-2 text-sm text-white/60">Upload images and PDFs, then ask Nova to summarize, inspect, or turn them into action items. Hover to remove.</p>
               </div>
               <div className="flex gap-2">
                 <label className="cursor-pointer rounded-xl border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200 transition hover:bg-cyan-500/20">
@@ -139,7 +216,16 @@ export default function WorkspaceModules({ activeView, files, onFilesChange }: W
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {images.length ? images.map(file => (
-                  <div key={file.id} className="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                  <div key={file.id} className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/20 group">
+                    <button
+                      onClick={() => removeFile(file.id)}
+                      className="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white/60 hover:bg-rose-500/80 hover:text-white hover:border-rose-400/50 transition-all opacity-0 group-hover:opacity-100"
+                      title="Remove image"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
                     {file.preview ? (
                       <img src={file.preview} alt={file.name} className="h-24 w-full object-cover" />
                     ) : (
@@ -147,7 +233,23 @@ export default function WorkspaceModules({ activeView, files, onFilesChange }: W
                     )}
                     <div className="p-2 text-[11px] text-white/70">
                       <p className="truncate font-medium">{file.name}</p>
-                      <p className="text-white/40">{file.size}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-white/40">{file.size}</p>
+                        <button
+                          onClick={() => analyzeUploadedFile(file)}
+                          disabled={uploadAnalysisLoading}
+                          className="w-5 h-5 rounded-full bg-cyan-400/15 border border-cyan-400/25 flex items-center justify-center text-cyan-300 hover:bg-cyan-400/40 hover:text-white hover:border-cyan-400/50 transition-all disabled:opacity-40"
+                          title="Analyze with AI"
+                        >
+                          {uploadAnalysisLoading ? (
+                            <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                          ) : (
+                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )) : renderPlaceholder('No images yet', 'Upload a screenshot, moodboard, or diagram to preview it here.')}
@@ -161,17 +263,88 @@ export default function WorkspaceModules({ activeView, files, onFilesChange }: W
               </div>
               <div className="mt-4 space-y-2">
                 {pdfs.length ? pdfs.map(file => (
-                  <div key={file.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/10 px-3 py-2">
-                    <div>
-                      <p className="text-sm text-white">{file.name}</p>
+                  <div key={file.id} className="flex items-center justify-between rounded-xl border border-white/10 bg-black/10 px-3 py-2 group">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">{file.name}</p>
                       <p className="text-[11px] text-white/40">{file.size}</p>
                     </div>
-                    <span className="rounded-full bg-violet-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.25em] text-violet-200">PDF</span>
+                    <div className="flex items-center gap-2 ml-2">
+                      <span className="rounded-full bg-violet-500/10 px-2 py-1 text-[10px] uppercase tracking-[0.25em] text-violet-200">PDF</span>
+                      <button
+                        onClick={() => analyzeUploadedFile(file)}
+                        disabled={uploadAnalysisLoading}
+                        className="w-6 h-6 rounded-full bg-cyan-400/15 border border-cyan-400/25 flex items-center justify-center text-cyan-300 hover:bg-cyan-400/40 hover:text-white hover:border-cyan-400/50 transition-all disabled:opacity-40 opacity-0 group-hover:opacity-100"
+                        title="Analyze with AI"
+                      >
+                        {uploadAnalysisLoading ? (
+                          <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+                        ) : (
+                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => removeFile(file.id)}
+                        className="w-6 h-6 rounded-full bg-black/40 border border-white/10 flex items-center justify-center text-white/40 hover:bg-rose-500/80 hover:text-white hover:border-rose-400/50 transition-all opacity-0 group-hover:opacity-100"
+                        title="Remove PDF"
+                      >
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 )) : renderPlaceholder('No PDFs yet', 'Upload spec sheets, contracts, or notes to access them instantly.')}
               </div>
             </div>
           </div>
+
+          {/* Inline Analysis Panel */}
+          {(uploadAnalysisOutput || uploadAnalysisLoading) && (
+            <div ref={analysisPanelRef} className="glass-panel-light p-4 rounded-2xl border border-cyan-400/20 animate-fadeInUp">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white">🔍 AI Analysis</span>
+                  {analyzedFileName && (
+                    <span className="text-[10px] text-white/40 font-mono truncate max-w-[200px]">{analyzedFileName}</span>
+                  )}
+                </div>
+                {!uploadAnalysisLoading && (
+                  <button
+                    onClick={() => {
+                      setUploadAnalysisOutput('');
+                      setAnalyzedFileName('');
+                    }}
+                    className="text-[10px] text-white/30 hover:text-white/60 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/10 p-4 min-h-[120px] max-h-[300px] overflow-y-auto">
+                {uploadAnalysisLoading ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-[11px] text-cyan-200 mb-3">
+                      <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse shadow-[0_0_8px_rgba(0,229,255,0.5)]" />
+                      Analyzing file...
+                    </div>
+                    <div className="space-y-2">
+                      <div className="h-3 w-full skeleton rounded" />
+                      <div className="h-3 w-5/6 skeleton rounded" />
+                      <div className="h-3 w-4/6 skeleton rounded" />
+                      <div className="h-3 w-full skeleton rounded" />
+                      <div className="h-3 w-3/4 skeleton rounded" />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm leading-relaxed space-y-1">
+                    {renderFormattedContent(uploadAnalysisOutput)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       );
 

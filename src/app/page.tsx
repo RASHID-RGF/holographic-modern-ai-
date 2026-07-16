@@ -156,12 +156,26 @@ export default function Home() {
                         ? 'Voice recognition active — speak now'
                         : 'Tap the orb or type a message to begin'}
                     </p>
+
                     <button
                       onClick={handleLaunchShare}
                       className="mt-4 inline-block rounded-full border border-cyan-400/30 bg-cyan-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-200 transition hover:bg-cyan-500/25"
                     >
                       Share screen
                     </button>
+
+
+                    {/* NOVA AI OS Profile */}
+                    <div className="mt-6 flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-2xl overflow-hidden border border-white/[0.08]">
+                        <img
+                          src="/nova.jpeg"
+                          alt="NOVA AI profile"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+
                   </div>
                 </div>
 
@@ -183,7 +197,7 @@ export default function Home() {
                   </div>
                   {/* Chat panel in dashboard view */}
                   <div className="md:col-span-2 xl:col-span-2">
-                    <ChatPanel files={uploadedFiles} onLaunchShare={handleLaunchShare} />
+                    <ChatPanel files={uploadedFiles} onFilesChange={handleFilesChange} onLaunchShare={handleLaunchShare} />
                   </div>
                 </div>
               </>
@@ -202,7 +216,7 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-                <ChatPanel files={uploadedFiles} onLaunchShare={handleLaunchShare} />
+                <ChatPanel files={uploadedFiles} onFilesChange={handleFilesChange} onLaunchShare={handleLaunchShare} />
               </div>
             ) : (
               <WorkspaceModules activeView={activeView} files={uploadedFiles} onFilesChange={handleFilesChange} />
