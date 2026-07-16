@@ -6,31 +6,37 @@ interface VoiceSettingsProps {
   voice: VoiceRecognitionState;
 }
 
+function Toggle({ enabled, onChange }: { enabled: boolean; onChange: () => void }) {
+  return (
+    <button
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+        enabled ? 'bg-cyan-500/60' : 'bg-white/10'
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+          enabled ? 'translate-x-[18px]' : 'translate-x-[2px]'
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function VoiceSettings({ voice }: VoiceSettingsProps) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-white/70">Voice Output</span>
-        <button
-          onClick={voice.toggleSpeech}
-          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-            voice.speechEnabled ? 'bg-cyan-500' : 'bg-white/10'
-          }`}
-        >
-          <span
-            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-              voice.speechEnabled ? 'translate-x-4.5' : 'translate-x-0.5'
-            }`}
-          />
-        </button>
+        <span className="text-xs text-white/70">Voice output</span>
+        <Toggle enabled={voice.speechEnabled} onChange={voice.toggleSpeech} />
       </div>
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-white/70">Voice Mode</span>
+        <span className="text-xs text-white/70">Voice mode</span>
         <select
           value={voice.speechMode}
           onChange={e => voice.setSpeechMode(e.target.value as SpeechMode)}
-          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-white/70 outline-none"
+          className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 outline-none focus:border-cyan-500/30"
         >
           <option value="default">Default</option>
           <option value="calm">Calm</option>
@@ -46,7 +52,7 @@ export default function VoiceSettings({ voice }: VoiceSettingsProps) {
           <select
             value={voice.selectedVoiceName}
             onChange={e => voice.setSelectedVoice(e.target.value)}
-            className="max-w-[120px] truncate rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-white/70 outline-none"
+            className="max-w-[130px] truncate rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[11px] text-white/70 outline-none focus:border-cyan-500/30"
           >
             {voice.availableVoices.map(availableVoice => (
               <option key={availableVoice.name} value={availableVoice.name}>
@@ -58,9 +64,9 @@ export default function VoiceSettings({ voice }: VoiceSettingsProps) {
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-xs text-white/70">Mic Access</span>
-        <span className={`text-[10px] ${voice.isSupported ? 'text-emerald-400' : 'text-rose-400'}`}>
-          {voice.isSupported ? 'Available' : 'Not Supported'}
+        <span className="text-xs text-white/70">Microphone</span>
+        <span className={`text-[11px] ${voice.isSupported ? 'text-emerald-400' : 'text-rose-400'}`}>
+          {voice.isSupported ? 'Ready' : 'Unavailable'}
         </span>
       </div>
     </div>

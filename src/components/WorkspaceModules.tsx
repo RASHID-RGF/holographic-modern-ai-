@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, type ChangeEvent } from 'react';
 import type { UploadedFile } from '@/types';
+import { renderFormattedContent } from '@/lib/formatResponse';
 
 
 type View = 'dashboard' | 'chat' | 'uploads' | 'documents' | 'screen-share' | 'analytics' | 'devices' | 'calendar' | 'settings';
@@ -423,11 +424,8 @@ export default function WorkspaceModules({ activeView, files, onFilesChange }: W
                     </div>
                   </div>
                 ) : analysisOutput ? (
-                  <div className="text-sm text-white/75 leading-relaxed space-y-2">
-                    {analysisOutput.split('\n').map((line, i) => {
-                      if (line.trim() === '') return <br key={i} />;
-                      return <p key={i}>{line}</p>;
-                    })}
+                  <div className="text-sm leading-relaxed space-y-1">
+                    {renderFormattedContent(analysisOutput)}
                   </div>
                 ) : (
                   <div className="text-center py-8">

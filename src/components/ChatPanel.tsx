@@ -4,6 +4,7 @@ import { useRef, useEffect } from 'react';
 import type { UploadedFile } from '@/types';
 import { useAIChat } from '@/hooks/useAIChat';
 import { useVoiceRecognition, type SpeechMode } from '@/hooks/useVoiceRecognition';
+import { renderFormattedContent } from '@/lib/formatResponse';
 
 interface ChatPanelProps {
   onLaunchShare?: () => void;
@@ -54,7 +55,6 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
     }
   }, [messages, voice.speechEnabled, voice.speak]);
 
-  // Sync voice transcript only when actively listening
   useEffect(() => {
     if (voice.isListening && voice.transcript) {
       setInput(voice.transcript);
@@ -74,21 +74,8 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
     }
   };
 
-  // GPT-like prose rendering: no special markdown parsing, just clean text
-  const renderMessage = (content: string) => {
-    return content.split('\n').map((line, i) => {
-      if (line.trim() === '') return <div key={i} className="h-2" />;
-      return (
-        <p key={i} className="text-sm leading-relaxed">
-          {line}
-        </p>
-      );
-    });
-  };
-
   return (
     <div className="flex flex-col animate-fadeInUp rounded-2xl border border-white/[0.06] bg-black/30 backdrop-blur-xl" style={{ maxHeight: '620px' }}>
-      {/* Panel header */}
       <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-500/20 to-violet-500/20 border border-cyan-500/20 flex items-center justify-center">
@@ -127,7 +114,6 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
         </div>
       </div>
 
-      {/* Messages area */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4 min-h-[300px] max-h-[360px]">
         {messages.map(msg => (
           <div
@@ -136,7 +122,6 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
               msg.role === 'user' ? 'flex-row-reverse' : ''
             }`}
           >
-            {/* Avatar */}
             <div
               className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
                 msg.role === 'assistant'
@@ -151,14 +136,7 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
               )}
             </div>
 
-            {/* Message bubble — GPT-like clean design */}
-            <div
-              className={`max-w-[80%] ${
-                msg.role === 'assistant'
-                  ? 'text-white/85'
-                  : 'text-white/90'
-              }`}
-            >
+            <div className={`max-w-[80%] ${msg.role === 'assistant' ? 'text-white/85' : 'text-white/90'}`}>
               <div
                 className={`${
                   msg.role === 'assistant'
@@ -166,7 +144,12 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
                     : 'bg-cyan-500/12 rounded-2xl rounded-tr-sm px-4 py-3'
                 }`}
               >
-                {renderMessage(msg.content)}
+                {msg.role === 'assistant'
+                  ? renderFormattedContent(msg.content)
+                  : msg.content.split('\n').map((line, li) => (
+                      <p key={li} className="text-sm leading-relaxed text-white/90">{line || '\u00A0'}</p>
+                    ))
+                }
               </div>
               <div className={`text-[9px] text-white/20 mt-1 ${
                 msg.role === 'user' ? 'text-right' : 'text-left'
@@ -180,7 +163,6 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
           </div>
         ))}
 
-        {/* Typing indicator */}
         {isTyping && (
           <div className="flex items-start gap-3 animate-fadeInUp">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-cyan-500 to-violet-500 flex items-center justify-center flex-shrink-0">
@@ -198,7 +180,6 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Voice waveform */}
       {voice.isListening && (
         <div className="px-5 py-3 border-t border-white/[0.06]">
           <div className="flex items-center justify-center gap-[2px] h-8 w-full max-w-[200px] mx-auto">
@@ -222,7 +203,6 @@ export default function ChatPanel({ onLaunchShare, files = [] }: ChatPanelProps)
         </div>
       )}
 
-      {/* Input area */}
       <div className="px-5 py-3 border-t border-white/[0.06]">
         {files.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
