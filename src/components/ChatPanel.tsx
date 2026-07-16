@@ -69,10 +69,14 @@ function cleanForSpeech(text: string): string {
   cleaned = cleaned.replace(/[\u{FE00}-\u{FE0F}]/gu, '');
   cleaned = cleaned.replace(/[\u{1F900}-\u{1F9FF}]/gu, '');
 
+  // Remove markdown headings (e.g. "## Heading")
+  cleaned = cleaned.replace(/^\s{0,3}#{1,6}\s+/gm, '');
+
   // Remove section headers/labels (short lines ending with colon)
   cleaned = cleaned.replace(/^\s*[A-Z][a-z]+\s*:\s*$/gm, '');
   cleaned = cleaned.replace(/^\s*[A-Z][a-z]+\s+[A-Z][a-z]+\s*:\s*$/gm, '');
   cleaned = cleaned.replace(/^\s*[A-Z][a-z]+\s+[A-Z][a-z]+\s+[A-Z][a-z]+\s*:\s*$/gm, '');
+
 
   // Remove common greetings and filler phrases at the START of text only
   cleaned = cleaned.replace(/^\s*(hello|hi|hey|greetings|welcome|good morning|good afternoon|good evening)[,.!]*\s*/i, '');
